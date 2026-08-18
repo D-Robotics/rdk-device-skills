@@ -45,6 +45,25 @@ RETIRED_ROUTES = {
     "rdk-mipi-camera-bringup",
     "rdk-perf-investigator",
 }
+WORKSPACE_ROUTER_ROUTES = {
+    "rdk-board-delegate": {"horizon-router": "OE Tool Chain (S)"},
+    "rdk-board-knowledge": {
+        "x5-router": "OE Tool Chain (X5)",
+        "horizon-router": "OE Tool Chain (S)",
+    },
+    "rdk-embodied-lerobot": {
+        "x5-router": "OE Tool Chain (X5)",
+        "horizon-router": "OE Tool Chain (S)",
+    },
+    "rdk-hardware": {
+        "x5-router": "OE Tool Chain (X5)",
+        "horizon-router": "OE Tool Chain (S)",
+    },
+    "rdk-model-zoo": {
+        "x5-router": "OE Tool Chain (X5)",
+        "horizon-router": "OE Tool Chain (S)",
+    },
+}
 
 
 # ── skill loading ────────────────────────────────────────────────────────────
@@ -114,6 +133,38 @@ def retired_route_problems(skills):
             pattern = rf"(?<![a-z0-9-]){re.escape(route)}(?![a-z0-9-])"
             if re.search(pattern, skill["text"], re.I):
                 problems.append(f"{name}: references retired route '{route}'")
+    return problems
+
+
+def workspace_router_route_problems(skills):
+    problems = []
+    for name, routes in WORKSPACE_ROUTER_ROUTES.items():
+        skill = skills.get(name)
+        if skill is None:
+            continue
+        description = skill.get("description", "")
+        text = skill.get("text", "")
+        if "availability-gated" not in description:
+            problems.append(f"{name}: workspace router metadata is not availability-gated")
+        if "## Workspace router availability gate" not in text:
+            problems.append(f"{name}: missing workspace router availability gate")
+        for router, pack in routes.items():
+            availability_check = (
+                f"check whether `{router}` is available in the current session"
+            )
+            if availability_check not in text:
+                problems.append(f"{name}: missing availability check for '{router}'")
+            if pack not in text:
+                problems.append(f"{name}: missing install fallback for '{router}'")
+            atomic_fallback = (
+                f"{availability_check}. If unavailable, do not hand off: "
+                f"use `rdk-pack-installer` to install `{pack}`"
+            )
+            if atomic_fallback not in text:
+                problems.append(f"{name}: missing atomic fallback for '{router}'")
+        for marker in ("`rdk-pack-installer`", "restart", "retry"):
+            if marker.casefold() not in text.casefold():
+                problems.append(f"{name}: workspace router gate missing '{marker}'")
     return problems
 
 
@@ -228,6 +279,7 @@ def validate(skills):
                 problems.append(f"{name}: SKILL.md references references/{ref} but file missing")
         ok.append(name)
     problems.extend(retired_route_problems(skills))
+    problems.extend(workspace_router_route_problems(skills))
     return ok, problems
 
 
