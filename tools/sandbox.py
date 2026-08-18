@@ -26,8 +26,10 @@ Usage:
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
+import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILLS_DIR = os.path.join(REPO, "skills")
@@ -351,6 +353,35 @@ def docs_search_check():
     r4 = subprocess.run(["bash", script, "--query", "不存在的关键词XYZQWE"],
                         capture_output=True, text=True)
     checks.append(("no-match reported honestly", "no-match" in r4.stdout))
+
+    # Run the real script against an isolated official-doc fixture. This guards
+    # the TROS handoff contract without depending on a local tros_doc clone.
+    with tempfile.TemporaryDirectory() as tmp:
+        tros_docs = os.path.join(tmp, "tros_doc", "docs")
+        os.makedirs(tros_docs)
+        fixture = os.path.join(tros_docs, "ros-node.md")
+        with open(fixture, "w", encoding="utf-8") as f:
+            f.write("TROS_FIXTURE node development reference\n")
+        bash_script, docs_root = script, tmp
+        if os.name == "nt":
+            def wsl_path(path):
+                drive, tail = os.path.splitdrive(path)
+                return f"/mnt/{drive[0].lower()}{tail.replace(os.sep, '/')}"
+            bash_script = wsl_path(script)
+            docs_root = wsl_path(tmp)
+        def run_fixture(repo):
+            command = (
+                f"RDK_DOCS_ROOT={shlex.quote(docs_root)} "
+                f"bash {shlex.quote(bash_script)} --repo {repo} --query TROS_FIXTURE"
+            )
+            return subprocess.run(["bash", "-c", command],
+                                  capture_output=True, text=True)
+        r5 = run_fixture("tros")
+        checks.append(("--repo tros searches tros_doc fixture",
+                       r5.returncode == 0 and "tros_doc/docs/ros-node.md" in r5.stdout))
+        r6 = run_fixture("all")
+        checks.append(("--repo all includes tros_doc fixture",
+                       r6.returncode == 0 and "tros_doc/docs/ros-node.md" in r6.stdout))
     return checks
 
 
