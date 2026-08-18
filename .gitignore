@@ -7,3 +7,6 @@
 
 # Node (docs sites, tooling)
 node_modules/
+
+# Isolated implementation worktrees
+.worktrees/
