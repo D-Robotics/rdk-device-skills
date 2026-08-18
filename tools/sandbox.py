@@ -36,6 +36,13 @@ REQUIRED_SECTIONS = [
     "## Purpose", "## When to use", "## Instructions", "## Safety",
 ]
 REQUIRED_FRONTMATTER = ["name", "description", "version", "license"]
+RETIRED_ROUTES = {
+    "rdk-device",
+    "rdk-doc-finder",
+    "rdk-ros",
+    "rdk-mipi-camera-bringup",
+    "rdk-perf-investigator",
+}
 
 
 # ── skill loading ────────────────────────────────────────────────────────────
@@ -96,6 +103,16 @@ def load_skills():
             "description": fm.get("description", ""),
         }
     return skills
+
+
+def retired_route_problems(skills):
+    problems = []
+    for name, skill in skills.items():
+        for route in RETIRED_ROUTES:
+            pattern = rf"(?<![a-z0-9-]){re.escape(route)}(?![a-z0-9-])"
+            if re.search(pattern, skill["text"], re.I):
+                problems.append(f"{name}: references retired route '{route}'")
+    return problems
 
 
 # ── routing (deterministic stand-in for LLM discovery) ──────────────────────
@@ -208,6 +225,7 @@ def validate(skills):
             if not os.path.isfile(os.path.join(s["dir"], "references", ref)):
                 problems.append(f"{name}: SKILL.md references references/{ref} but file missing")
         ok.append(name)
+    problems.extend(retired_route_problems(skills))
     return ok, problems
 
 
