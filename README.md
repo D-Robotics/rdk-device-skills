@@ -8,6 +8,8 @@
 
 This is a **device-side** repository: skills run on the RDK, inspect the RDK, or provide commands that an agent should execute on the RDK. System-image customization prior to flashing is out of scope.
 
+Current release: **v1.0.0**.
+
 ## Skill Catalog
 
 | Skill | Description |
