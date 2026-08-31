@@ -12,11 +12,9 @@ SPEC.loader.exec_module(sandbox)
 
 class DeviceReleaseContractTests(unittest.TestCase):
     def test_every_canonical_skill_has_v1_frontmatter(self):
-        for path in sorted(
-            path
-            for path in (ROOT / "skills").rglob("SKILL.md")
-            if ".worktrees" not in path.parts
-        ):
+        paths = sorted((ROOT / "skills").rglob("SKILL.md"))
+        self.assertTrue(paths, "expected canonical SKILL.md files under skills/")
+        for path in paths:
             text = path.read_text(encoding="utf-8")
             self.assertRegex(text, r"(?m)^version:\s*1\.0\.0\s*$", str(path))
 
