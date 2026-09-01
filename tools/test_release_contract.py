@@ -28,12 +28,23 @@ class DeviceReleaseContractTests(unittest.TestCase):
         workflow_path = ROOT / ".github" / "workflows" / "notify-hub-release.yml"
         workflow = workflow_path.read_text(encoding="utf-8")
         document = yaml.load(workflow, Loader=yaml.BaseLoader)
+        app_token_action = (
+            "actions/create-github-app-token@"
+            "fee1f7d63c2ff003460e3d139729b119787bc349"
+        )
 
         self.assertEqual(document["on"], {"release": {"types": ["published"]}})
         self.assertEqual(document["permissions"], {"contents": "read"})
         self.assertIn("RDK_RELEASE_DISPATCHER_PRIVATE_KEY", workflow)
         self.assertIn("github.event.release.prerelease", workflow)
-        self.assertIn("actions/create-github-app-token@v2", workflow)
+        self.assertEqual(
+            [
+                step["uses"]
+                for step in document["jobs"]["notify-hub"]["steps"]
+                if "uses" in step
+            ],
+            [app_token_action],
+        )
         self.assertIn(
             "repos/D-Robotics/rdk-skills/actions/workflows/component-upgrade.yml/dispatches",
             workflow,
@@ -43,7 +54,7 @@ class DeviceReleaseContractTests(unittest.TestCase):
         token_step = next(
             step
             for step in document["jobs"]["notify-hub"]["steps"]
-            if step.get("uses") == "actions/create-github-app-token@v2"
+            if step.get("uses") == app_token_action
         )
         self.assertEqual(
             token_step["with"]["app-id"],

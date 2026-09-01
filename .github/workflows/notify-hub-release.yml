@@ -48,7 +48,7 @@ jobs:
 
       - name: Create Hub-only workflow dispatcher token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.RDK_RELEASE_DISPATCHER_APP_ID }}
           private-key: ${{ secrets.RDK_RELEASE_DISPATCHER_PRIVATE_KEY }}
