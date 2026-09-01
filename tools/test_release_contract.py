@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULE_PATH = Path(__file__).with_name("sandbox.py")
@@ -22,3 +23,30 @@ class DeviceReleaseContractTests(unittest.TestCase):
         skills = sandbox.load_skills()
         self.assertEqual(sandbox.retired_route_problems(skills), [])
         self.assertEqual(sandbox.workspace_router_route_problems(skills), [])
+
+    def test_published_release_notifies_hub_with_verified_payload(self):
+        workflow_path = ROOT / ".github" / "workflows" / "notify-hub-release.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        document = yaml.load(workflow, Loader=yaml.BaseLoader)
+
+        self.assertEqual(document["on"], {"release": {"types": ["published"]}})
+        self.assertEqual(document["permissions"], {"contents": "read"})
+        self.assertIn("rdk-component-release", workflow)
+        self.assertIn("RDK_RELEASE_BOT_PRIVATE_KEY", workflow)
+        self.assertIn("github.event.release.prerelease", workflow)
+        self.assertIn("actions/create-github-app-token@v2", workflow)
+        self.assertIn("repos/D-Robotics/rdk-skills/dispatches", workflow)
+        self.assertIn("^[0-9a-fA-F]{40}$", workflow)
+
+        expected_payload_fields = {
+            "schema_version",
+            "source_repo",
+            "tag",
+            "release_url",
+            "target_sha",
+            "published_at",
+        }
+        self.assertEqual(
+            set(document["jobs"]["notify-hub"]["steps"][-1]["env"]),
+            expected_payload_fields,
+        )

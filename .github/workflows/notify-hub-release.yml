@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 D-Robotics. All rights reserved.
+
+name: Notify Hub of a formal source Release
+
+on:
+  release:
+    types: [published]
+
+# The GitHub-provided token only reads the source Release/tag. The separate
+# short-lived App token below is restricted to the Hub for the dispatch write.
+permissions:
+  contents: read
+
+jobs:
+  notify-hub:
+    if: >-
+      github.event.release.draft == false &&
+      github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a stable semantic version tag
+        env:
+          tag: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo "published Release tag is not a stable semantic version" >&2
+            exit 1
+          }
+
+      - name: Resolve the release tag to its commit SHA
+        id: release
+        env:
+          tag: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          target_sha=$(curl --fail --silent --show-error \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${{ github.token }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/$tag" | jq -r '.sha // empty')
+          [[ "$target_sha" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo "release tag did not resolve to a 40-character commit SHA" >&2
+            exit 1
+          }
+          printf 'target_sha=%s\n' "$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Create Hub-scoped release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RDK_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RDK_RELEASE_BOT_PRIVATE_KEY }}
+          owner: D-Robotics
+          repositories: rdk-skills
+          permission-contents: write
+
+      - name: Dispatch the verified Release to the Hub
+        env:
+          schema_version: "1"
+          source_repo: ${{ github.repository }}
+          tag: ${{ github.event.release.tag_name }}
+          release_url: ${{ github.event.release.html_url }}
+          target_sha: ${{ steps.release.outputs.target_sha }}
+          published_at: ${{ github.event.release.published_at }}
+        run: |
+          set -euo pipefail
+          payload=$(jq -n \
+            --argjson schema_version "$schema_version" \
+            --arg source_repo "$source_repo" \
+            --arg tag "$tag" \
+            --arg release_url "$release_url" \
+            --arg target_sha "$target_sha" \
+            --arg published_at "$published_at" \
+            '{event_type: "rdk-component-release", client_payload: {
+              schema_version: $schema_version,
+              source_repo: $source_repo,
+              tag: $tag,
+              release_url: $release_url,
+              target_sha: $target_sha,
+              published_at: $published_at
+            }}')
+          curl --fail --silent --show-error --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --url "https://api.github.com/repos/D-Robotics/rdk-skills/dispatches" \
+            --data "$payload"
