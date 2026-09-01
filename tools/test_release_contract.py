@@ -31,12 +31,30 @@ class DeviceReleaseContractTests(unittest.TestCase):
 
         self.assertEqual(document["on"], {"release": {"types": ["published"]}})
         self.assertEqual(document["permissions"], {"contents": "read"})
-        self.assertIn("rdk-component-release", workflow)
-        self.assertIn("RDK_RELEASE_BOT_PRIVATE_KEY", workflow)
+        self.assertIn("RDK_RELEASE_DISPATCHER_PRIVATE_KEY", workflow)
         self.assertIn("github.event.release.prerelease", workflow)
         self.assertIn("actions/create-github-app-token@v2", workflow)
-        self.assertIn("repos/D-Robotics/rdk-skills/dispatches", workflow)
+        self.assertIn(
+            "repos/D-Robotics/rdk-skills/actions/workflows/component-upgrade.yml/dispatches",
+            workflow,
+        )
         self.assertIn("^[0-9a-fA-F]{40}$", workflow)
+
+        token_step = next(
+            step
+            for step in document["jobs"]["notify-hub"]["steps"]
+            if step.get("uses") == "actions/create-github-app-token@v2"
+        )
+        self.assertEqual(
+            token_step["with"]["app-id"],
+            "${{ vars.RDK_RELEASE_DISPATCHER_APP_ID }}",
+        )
+        self.assertEqual(
+            token_step["with"]["private-key"],
+            "${{ secrets.RDK_RELEASE_DISPATCHER_PRIVATE_KEY }}",
+        )
+        self.assertEqual(token_step["with"]["permission-actions"], "write")
+        self.assertNotIn("permission-contents", token_step["with"])
 
         expected_payload_fields = {
             "schema_version",

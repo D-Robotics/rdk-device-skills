@@ -7,8 +7,8 @@ on:
   release:
     types: [published]
 
-# The GitHub-provided token only reads the source Release/tag. The separate
-# short-lived App token below is restricted to the Hub for the dispatch write.
+# The GitHub-provided token only reads this source Release/tag. The separate
+# dispatcher App is installed only on the Hub and has Actions: write only.
 permissions:
   contents: read
 
@@ -46,15 +46,15 @@ jobs:
           }
           printf 'target_sha=%s\n' "$target_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Create Hub-scoped release bot token
+      - name: Create Hub-only workflow dispatcher token
         id: app-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.RDK_RELEASE_BOT_APP_ID }}
-          private-key: ${{ secrets.RDK_RELEASE_BOT_PRIVATE_KEY }}
+          app-id: ${{ vars.RDK_RELEASE_DISPATCHER_APP_ID }}
+          private-key: ${{ secrets.RDK_RELEASE_DISPATCHER_PRIVATE_KEY }}
           owner: D-Robotics
           repositories: rdk-skills
-          permission-contents: write
+          permission-actions: write
 
       - name: Dispatch the verified Release to the Hub
         env:
@@ -73,17 +73,18 @@ jobs:
             --arg release_url "$release_url" \
             --arg target_sha "$target_sha" \
             --arg published_at "$published_at" \
-            '{event_type: "rdk-component-release", client_payload: {
-              schema_version: $schema_version,
+            '{ref: "main", inputs: {
+              schema_version: ($schema_version | tostring),
               source_repo: $source_repo,
               tag: $tag,
               release_url: $release_url,
               target_sha: $target_sha,
-              published_at: $published_at
+              published_at: $published_at,
+              dry_run: "false"
             }}')
           curl --fail --silent --show-error --request POST \
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
             --header "X-GitHub-Api-Version: 2022-11-28" \
-            --url "https://api.github.com/repos/D-Robotics/rdk-skills/dispatches" \
+            --url "https://api.github.com/repos/D-Robotics/rdk-skills/actions/workflows/component-upgrade.yml/dispatches" \
             --data "$payload"
