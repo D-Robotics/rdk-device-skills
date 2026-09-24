@@ -27,17 +27,17 @@ class DeviceReleaseContractTests(unittest.TestCase):
         self.assertTrue(validator.is_file(), validator)
 
         canonical_payload = {
-            "tag_name": "v1.0.0",
-            "html_url": "https://github.com/D-Robotics/rdk-device-skills/releases/tag/v1.0.0",
-            "published_at": "2026-08-31T12:00:00Z",
+            "tag_name": "v1.0.1",
+            "html_url": "https://github.com/D-Robotics/rdk-device-skills/releases/tag/v1.0.1",
+            "published_at": "2026-09-24T12:00:00Z",
             "draft": False,
             "prerelease": False,
         }
         invalid_mutations = (
-            ("wrong tag_name: API v1.0.1 versus requested v1.0.0", "tag_name", "v1.0.1", "Release tag does not match the requested stable tag\n"),
+            ("wrong tag_name: API v1.0.2 versus requested v1.0.1", "tag_name", "v1.0.2", "Release tag does not match the requested stable tag\n"),
             ("missing tag_name", "tag_name", MISSING, "Release tag_name must be a non-empty single-line string\n"),
-            ("malformed tag_name", "tag_name", ["v1.0.0"], "Release tag_name must be a non-empty single-line string\n"),
-            ("wrong html_url: noncanonical URL", "html_url", "https://example.test/releases/tag/v1.0.0", "Release URL is not canonical for the requested repository and tag\n"),
+            ("malformed tag_name", "tag_name", ["v1.0.1"], "Release tag_name must be a non-empty single-line string\n"),
+            ("wrong html_url: noncanonical URL", "html_url", "https://example.test/releases/tag/v1.0.1", "Release URL is not canonical for the requested repository and tag\n"),
             ("missing html_url", "html_url", MISSING, "Release html_url must be a non-empty single-line string\n"),
             ("malformed html_url", "html_url", 1, "Release html_url must be a non-empty single-line string\n"),
             ("wrong published_at: empty time", "published_at", "", "Release published_at must be a non-empty single-line string\n"),
@@ -52,13 +52,13 @@ class DeviceReleaseContractTests(unittest.TestCase):
         )
 
         result = subprocess.run(
-            [sys.executable, str(validator), "v1.0.0", "D-Robotics/rdk-device-skills"],
+            [sys.executable, str(validator), "v1.0.1", "D-Robotics/rdk-device-skills"],
             input=json.dumps(canonical_payload), text=True, capture_output=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(
             result.stdout,
-            "tag=v1.0.0\nrelease_url=https://github.com/D-Robotics/rdk-device-skills/releases/tag/v1.0.0\npublished_at=2026-08-31T12:00:00Z\n",
+            "tag=v1.0.1\nrelease_url=https://github.com/D-Robotics/rdk-device-skills/releases/tag/v1.0.1\npublished_at=2026-09-24T12:00:00Z\n",
         )
 
         for name, field, value, expected_error in invalid_mutations:
@@ -69,24 +69,47 @@ class DeviceReleaseContractTests(unittest.TestCase):
                 else:
                     payload[field] = value
                 result = subprocess.run(
-                    [sys.executable, str(validator), "v1.0.0", "D-Robotics/rdk-device-skills"],
+                    [sys.executable, str(validator), "v1.0.1", "D-Robotics/rdk-device-skills"],
                     input=json.dumps(payload), text=True, capture_output=True, check=False,
                 )
                 self.assertEqual(result.returncode, 1, result)
                 self.assertEqual(result.stdout, "")
                 self.assertEqual(result.stderr, expected_error)
 
-    def test_every_canonical_skill_has_v1_frontmatter(self):
+    def test_release_metadata_uses_v1_0_1(self):
         paths = sorted((ROOT / "skills").rglob("SKILL.md"))
         self.assertTrue(paths, "expected canonical SKILL.md files under skills/")
         for path in paths:
             text = path.read_text(encoding="utf-8")
-            self.assertRegex(text, r"(?m)^version:\s*1\.0\.0\s*$", str(path))
+            self.assertRegex(text, r"(?m)^version:\s*1\.0\.1\s*$", str(path))
+
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Current release: **v1.0.1**.", readme)
+        readme_cn = (ROOT / "README_cn.md").read_text(encoding="utf-8")
+        self.assertIn("当前版本：**v1.0.1**。", readme_cn)
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertRegex(changelog, r"(?m)^## v1\.0\.1 - ")
 
     def test_release_routes_have_no_retired_or_workspace_gaps(self):
         skills = sandbox.load_skills()
         self.assertEqual(sandbox.retired_route_problems(skills), [])
         self.assertEqual(sandbox.workspace_router_route_problems(skills), [])
+
+    def test_s_series_handoffs_use_the_drobotics_router_in_all_route_text(self):
+        skill_names = (
+            "rdk-hardware",
+            "rdk-board-knowledge",
+            "rdk-embodied-lerobot",
+            "rdk-board-delegate",
+        )
+        for name in skill_names:
+            with self.subTest(skill=name):
+                path = ROOT / "skills" / name / "SKILL.md"
+                text = path.read_text(encoding="utf-8")
+                description = sandbox.parse_frontmatter(text).get("description", "")
+                self.assertIn("drobotics-router", description)
+                self.assertIn("drobotics-router", text)
+                self.assertNotIn("horizon-router", text)
 
     def test_release_or_recovery_dispatch_notifies_hub_with_api_verified_payload(self):
         workflow_path = ROOT / ".github" / "workflows" / "notify-hub-release.yml"

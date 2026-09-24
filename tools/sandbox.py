@@ -46,18 +46,18 @@ RETIRED_ROUTES = {
     "rdk-perf-investigator",
 }
 WORKSPACE_ROUTER_ROUTES = {
-    "rdk-board-delegate": {"horizon-router": "OE Tool Chain (S)"},
+    "rdk-board-delegate": {"drobotics-router": "OE Tool Chain (S)"},
     "rdk-board-knowledge": {
         "x5-router": "OE Tool Chain (X5)",
-        "horizon-router": "OE Tool Chain (S)",
+        "drobotics-router": "OE Tool Chain (S)",
     },
     "rdk-embodied-lerobot": {
         "x5-router": "OE Tool Chain (X5)",
-        "horizon-router": "OE Tool Chain (S)",
+        "drobotics-router": "OE Tool Chain (S)",
     },
     "rdk-hardware": {
         "x5-router": "OE Tool Chain (X5)",
-        "horizon-router": "OE Tool Chain (S)",
+        "drobotics-router": "OE Tool Chain (S)",
     },
     "rdk-model-zoo": {
         "x5-router": "OE Tool Chain (X5)",

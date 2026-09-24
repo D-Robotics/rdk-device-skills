@@ -40,10 +40,10 @@ class WorkspaceRouterContractTests(unittest.TestCase):
     def test_availability_check_must_stop_handoff_before_install_fallback(self):
         skills = {
             "rdk-board-delegate": {
-                "description": "horizon-router handoff is availability-gated.",
+                "description": "drobotics-router handoff is availability-gated.",
                 "text": """\
 ## Workspace router availability gate
-check whether `horizon-router` is available in the current session.
+check whether `drobotics-router` is available in the current session.
 Mention `rdk-pack-installer` and `OE Tool Chain (S)`, then restart and retry.
 """,
             }

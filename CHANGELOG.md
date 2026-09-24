@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.1 - 2026-09-24
+
+- Corrected S-series conversion and compile handoffs in four Skills to use `drobotics-router`.
+
 ## v1.0.0 - 2026-08-31
 
 - Unified the canonical RDK device Skills release at version 1.0.0.
